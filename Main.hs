@@ -1,6 +1,10 @@
+{-# language DuplicateRecordFields #-}
+{-# language NamedFieldPuns #-}
+
 module Main where
 
 import Data.Parser (Result(..),Slice(..))
+import Associate (associate,arithmetic)
 
 import qualified Syntax
 import qualified Token
@@ -15,8 +19,13 @@ main = do
     Just ts -> do
       print ts
       case Syntax.decode ts of
-        Success (Slice off len r) -> do
+        Success (Slice off len r@Syntax.Declaration{definition}) -> do
           print r
           putStrLn "Cleaned"
           print (Syntax.clean r)
+          case associate arithmetic definition of
+            Left err -> fail err
+            Right t -> do
+              putStrLn "After infix cleanup"
+              print t
         Failure err -> fail err

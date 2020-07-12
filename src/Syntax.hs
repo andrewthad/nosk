@@ -5,6 +5,12 @@
 module Syntax
   ( decode
   , clean
+  , Term(..)
+  , InfixChain(..)
+  , Op(..)
+  , Declaration(..)
+  , Pattern
+  , Alternative(..)
   ) where
 
 import Control.Applicative (liftA2)
@@ -47,14 +53,10 @@ import qualified Token as T
 --   | >
 --   | , types typetuple1
 -- termchain0
---   | terms0 termchain1
+--   | term termchain1
 -- termchain1
---   | infixop terms0 termchain1
---   | empty
--- terms0 // function application
---   | term terms1
--- terms1 // function application
---   | term terms1
+--   | infixop term termchain1 // infix operator
+--   | term termchain1 // function application
 --   | empty
 -- term
 --   | lambda var arrow termchain0
@@ -96,7 +98,6 @@ data Term
   = Var !ShortText
   | Lam !ShortText Term
   | Infixes Term InfixChain
-  | App [Term]
   | Tuple [Term]
   | Case !Term [Alternative]
   | Integer !Int64
@@ -137,7 +138,12 @@ data Type
 
 data InfixChain
   = InfixChainTerminal
-  | InfixChainCons !ShortText !Term !InfixChain
+  | InfixChainCons !Op !Term !InfixChain
+  deriving (Show)
+
+data Op
+  = Application
+  | CustomOp !ShortText
   deriving (Show)
 
 mapInfixChain :: (Term -> Term) -> InfixChain -> InfixChain
@@ -174,10 +180,10 @@ cleanTerm :: Term -> Term
 cleanTerm t = case t of
   Var{} -> t
   Integer{} -> t
-  App ts -> case ts of
-    [] -> error "Empty term application encountered. Fix this."
-    [t0] -> cleanTerm t0
-    _ -> App (map cleanTerm ts)
+  -- App ts -> case ts of
+  --   [] -> error "Empty term application encountered. Fix this."
+  --   [t0] -> cleanTerm t0
+  --   _ -> App (map cleanTerm ts)
   Lam v a -> Lam v (cleanTerm a)
   Case e ts -> Case (cleanTerm e) (map cleanAlternative ts)
   Tuple{} -> t -- TODO: recurse into components
@@ -282,20 +288,6 @@ typeParser = Parser.any "typeParser: expected leading token" >>= \case
   T.IdentLower ident -> pure $ VarT ident
   _ -> Parser.fail "typeParser: unexpected token"
 
-terms0 :: Parser Token String s Term
-terms0 = do
-  t <- term
-  ts <- terms1
-  pure (App (t : ts))
-
-terms1 :: Parser Token String s [Term]
-terms1 = Parser.peek "terms1: expected leading token" >>= \case
-  T.ParenOpen -> liftA2 (:) term terms1
-  T.Backslash -> liftA2 (:) term terms1
-  T.IdentLower{} -> liftA2 (:) term terms1
-  T.Integer{} -> liftA2 (:) term terms1
-  _ -> pure []
-
 term :: Parser Token String s Term
 term = Parser.any "term: expected leading token" >>= \case
   T.ParenOpen -> do
@@ -321,7 +313,7 @@ term = Parser.any "term: expected leading token" >>= \case
 
 termchain0 :: Parser Token String s Term
 termchain0 = do
-  t <- terms0
+  t <- term
   ts <- termchain1
   pure (Infixes t ts)
 
@@ -329,9 +321,15 @@ termchain1 :: Parser Token String s InfixChain
 termchain1 = Parser.peek "termchain1: expected leading token" >>= \case
   T.Infix op -> do
     _ <- Parser.any "termchain1: not possible"
-    t <- terms0
+    t <- term
     ts <- termchain1
-    pure (InfixChainCons op t ts)
+    pure (InfixChainCons (CustomOp op) t ts)
+  T.IdentLower{} -> liftA2 (InfixChainCons Application) term termchain1
+  T.Integer{} -> liftA2 (InfixChainCons Application) term termchain1
+  T.Text{} -> liftA2 (InfixChainCons Application) term termchain1
+  T.ParenOpen{} -> liftA2 (InfixChainCons Application) term termchain1
+  T.Case{} -> liftA2 (InfixChainCons Application) term termchain1
+  T.Backslash{} -> liftA2 (InfixChainCons Application) term termchain1
   _ -> pure InfixChainTerminal
 
 alts0 :: Parser Token String s [Alternative]
