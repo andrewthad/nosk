@@ -1,0 +1,5 @@
+declare quadratic : <Int,Int,Int,Int> -> Int
+  as \arg -> case arg of
+    { <a,b,c,x> -> a * x * x + b * x + c
+    }
+end

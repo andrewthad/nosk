@@ -1,0 +1,1 @@
+declare map : forall a b. (a -> b) -> List a -> List b as

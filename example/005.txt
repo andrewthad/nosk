@@ -1,0 +1,4 @@
+declare map : forall a b. (a -> b) -> List a -> List b
+  as \f -> \xs -> foo 42 16 (f 0) + xs
+end
+
