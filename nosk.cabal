@@ -21,6 +21,12 @@ library
     Associate
     Token
     Syntax
+    Lowered
+    LoweredJoin
+    LoweredRedo
+    LoweredGrinJoin
+    LoweredGrinJoin2
+    -- LoweredAlloca
   build-depends:
     , base >=4.14 && <4.15
     , bytesmith
@@ -31,6 +37,10 @@ library
     , primitive
     , text-short
     , smith
+    , text
+    , transformers
+    , llvm-hs-pure >= 9.0 && < 10.0
+    , ilist
   hs-source-dirs: src
   default-language:    Haskell2010
 
@@ -47,3 +57,5 @@ executable nosk
     , text-short
     , nosk
     , smith
+    , text
+    , llvm-hs-pretty >=0.9
